@@ -1,182 +1,218 @@
 import React from 'react';
-import { View, Text, TextInput, TouchableOpacity, ImageBackground, StyleSheet } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ImageBackground,
+  StyleSheet,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
-import { Formik } from 'formik';
+import {
+  widthPercentageToDP as wp,
+  heightPercentageToDP as hp,
+} from 'react-native-responsive-screen';
+import {Formik} from 'formik';
 import * as Yup from 'yup';
+import {useAuth} from '../hooks/useAuth';
 
-// Validation schema using Yup
 const ForgotPasswordSchema = Yup.object().shape({
-    email: Yup.string().email('Invalid email').required('Email is required'),
+  email: Yup.string()
+    .email('Please enter a valid email')
+    .required('Email is required'),
 });
 
-const ForgotPasswordScreen = ({ navigation }) => {
-    return (
-        <ImageBackground
-            source={require('../assets/images/SplashBg.png')}
-            style={styles.background}
-        >
-            <View style={styles.container}>
-                {/* Fingerprint Icon with Border */}
-                <View style={styles.iconContainer}>
-                    <Icon name="finger-print" size={40} color="#FFF" style={styles.icon} />
-                </View>
+const ForgotPasswordScreen = ({navigation}) => {
+  const {forgotPassword, loading, error} = useAuth();
 
-                {/* Forget Password Header */}
-                <Text style={styles.header}>Forget Password?</Text>
-                <Text style={styles.subHeader}>No Worries, we'll send you reset instructions.</Text>
+  const handleForgotPassword = async (values, {setSubmitting}) => {
+    try {
+      await forgotPassword(values.email);
+      Alert.alert(
+        'Success',
+        'Password reset instructions have been sent to your email.',
+        [
+          {
+            text: 'OK',
+            onPress: () => navigation.navigate('LoginScreen'),
+          },
+        ],
+      );
+    } catch (err) {
+      Alert.alert(
+        'Error',
+        err.message || 'An error occurred while sending reset instructions',
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
-                {/* Formik for form management */}
-                <Formik
-                    initialValues={{ email: '' }}
-                    validationSchema={ForgotPasswordSchema}
-                    onSubmit={(values) => {
-                        console.log(values);
-                        navigation.navigate("ResetPasswordScreen");
-                    }}
-                >
-                    {({
-                        handleChange,
-                        handleBlur,
-                        handleSubmit,
-                        values,
-                        errors,
-                        touched,
-                    }) => (
-                        <>
-                            {/* Email Label */}
-                            <Text style={styles.label}>Email</Text>
+  return (
+    <ImageBackground
+      source={require('../assets/images/SplashBg.png')}
+      style={styles.background}>
+      <View style={styles.container}>
+        <View style={styles.iconContainer}>
+          <Icon name="finger-print" size={40} color="#FFF" />
+        </View>
 
-                            {/* Email Input */}
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Enter your email"
-                                placeholderTextColor="#FFFFFF"
-                                keyboardType="email-address"
-                                onChangeText={handleChange('email')}
-                                onBlur={handleBlur('email')}
-                                value={values.email}
-                            />
+        <Text style={styles.header}>Forgot Password?</Text>
+        <Text style={styles.subHeader}>
+          No worries, we'll send you reset instructions.
+        </Text>
 
-                            {/* Error message */}
-                            {touched.email && errors.email && (
-                                <Text style={styles.errorText}>{errors.email}</Text>
-                            )}
+        <Formik
+          initialValues={{email: ''}}
+          validationSchema={ForgotPasswordSchema}
+          onSubmit={handleForgotPassword}>
+          {({
+            handleChange,
+            handleBlur,
+            handleSubmit,
+            values,
+            errors,
+            touched,
+            isSubmitting,
+          }) => (
+            <View style={styles.formContainer}>
+              <Text style={styles.label}>Email</Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  touched.email && errors.email && styles.inputError,
+                ]}
+                placeholder="Enter your email"
+                placeholderTextColor="#FFFFFF80"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                onChangeText={handleChange('email')}
+                onBlur={handleBlur('email')}
+                value={values.email}
+                editable={!loading}
+              />
+              {touched.email && errors.email && (
+                <Text style={styles.errorText}>{errors.email}</Text>
+              )}
 
-                            {/* Reset Password Button */}
-                            <TouchableOpacity style={styles.button} onPress={() => {
-                                navigation.navigate("ResetPasswordScreen");
-                                handleSubmit()
-
-                            }}>
-                                <Text style={styles.buttonText}>Reset Password</Text>
-                            </TouchableOpacity>
-                        </>
-                    )}
-                </Formik>
-
-                {/* Back to Login Link with Arrow Icon */}
-                <TouchableOpacity style={styles.backContainer} onPress={() => navigation.navigate("LoginScreen")}>
-                    <Icon name="arrow-back" size={18} color="#FFF" />
-                    <Text style={styles.backText}>Back to log in</Text>
-                </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.button,
+                  (loading || isSubmitting) && styles.buttonDisabled,
+                ]}
+                onPress={handleSubmit}
+                disabled={loading || isSubmitting}>
+                {loading || isSubmitting ? (
+                  <ActivityIndicator color="#FFF" />
+                ) : (
+                  <Text style={styles.buttonText}>Reset Password</Text>
+                )}
+              </TouchableOpacity>
             </View>
-        </ImageBackground>
-    );
+          )}
+        </Formik>
+
+        <TouchableOpacity
+          style={styles.backContainer}
+          onPress={() => navigation.navigate('LoginScreen')}
+          disabled={loading}>
+          <Icon name="arrow-back" size={18} color="#FFF" />
+          <Text style={styles.backText}>Back to login</Text>
+        </TouchableOpacity>
+      </View>
+    </ImageBackground>
+  );
 };
 
 const styles = StyleSheet.create({
-    background: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    container: {
-        padding: 20,
-        alignItems: 'center',
-        width: '95%', // Ensure full width for responsiveness
-    },
-    iconContainer: {
-        borderColor: '#FFD700', // Yellow border for the icon box
-        borderWidth: 1,
-        borderRadius: 10, // Rounded corners for the box
-        padding: 10, // Space around the icon
-        marginBottom: 20,
-    },
-    icon: {
-        // Inside the box, no additional styling needed
-    },
-    header: {
-        fontSize: 28,
-        color: '#FFF',
-        marginBottom: 10,
-        fontFamily: "Poppins-SemiBold"
-    },
-    subHeader: {
-        fontSize: 13,
-        color: '#FFF',
-        marginBottom: 30,
-        textAlign: 'center',
-        fontFamily: "Poppins-Regular"
-    },
-    label: {
-        alignSelf: 'flex-start', // Align the label to the start (left)
-        color: '#FFF',
-        fontSize: 16,
-        marginBottom: 7, // Small space below the label
-        fontFamily: "Poppins-Medium",
-        fontWeight: "400"
-    },
-    input: {
-        width: '100%', // Full width
-        padding: 10, // Padding for input
-        backgroundColor: '#000000', // Set input background to black
-        borderRadius: 5,
-        borderWidth: 1,
-        borderColor: '#FFD700', // Orange border color
-        color: '#FFD700', // Yellow text inside the input
-        fontSize: 16,
-        marginBottom: 10, // Space between input and button
-        fontFamily: "Poppins-Medium",
-        fontWeight: "400"
-    },
-    errorText: {
-        color: 'red', // Error message in yellow
-        fontSize: 14,
-        marginBottom: 20, // Space between error and button
-        fontFamily: "Poppins-Regular",
-        alignSelf: "flex-start"
-    },
-    button: {
-        backgroundColor: '#FFD700',
-        height: hp("6%"),
-        borderRadius: 5,
-        width: '100%',
-        alignItems: 'center',
-        marginBottom: 40,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginTop: hp('2')
-    },
-    buttonText: {
-        color: '#000', // Black text on the button
-        fontSize: 18,
-        fontFamily: "Poppins-Medium",
-        fontWeight: "500"
-    },
-    backContainer: {
-        flexDirection: 'row', // Align arrow and text in a row
-        alignItems: 'center',
-        marginTop: 8,
-    },
-    backText: {
-        color: '#FFF',
-        fontSize: 17,
-        marginLeft: 5, // Space between the icon and text
-        fontFamily: "Poppins-Medium",
-        fontWeight: "500",
-        marginTop: 1,
-    },
+  background: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+  container: {
+    flex: 1,
+    padding: wp('5%'),
+    justifyContent: 'center',
+  },
+  iconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    alignSelf: 'center',
+    marginBottom: hp('3%'),
+  },
+  header: {
+    fontSize: wp('6%'),
+    fontWeight: 'bold',
+    color: '#FFF',
+    textAlign: 'center',
+    marginBottom: hp('1%'),
+  },
+  subHeader: {
+    fontSize: wp('4%'),
+    color: '#FFFFFF80',
+    textAlign: 'center',
+    marginBottom: hp('4%'),
+  },
+  formContainer: {
+    width: '100%',
+  },
+  label: {
+    fontSize: wp('4%'),
+    color: '#FFF',
+    marginBottom: hp('1%'),
+  },
+  input: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 8,
+    padding: wp('4%'),
+    color: '#FFF',
+    fontSize: wp('4%'),
+    marginBottom: hp('2%'),
+    borderWidth: 1,
+    borderColor: '#FFD700',
+  },
+  inputError: {
+    borderColor: '#FF0000',
+    borderWidth: 1,
+  },
+  errorText: {
+    color: '#FF0000',
+    fontSize: wp('3.5%'),
+    marginBottom: hp('1%'),
+  },
+  button: {
+    backgroundColor: '#FFD700',
+    borderRadius: 8,
+    padding: wp('4%'),
+    alignItems: 'center',
+    marginTop: hp('2%'),
+  },
+  buttonDisabled: {
+    backgroundColor: '#FFD70080',
+  },
+  buttonText: {
+    color: '#000',
+    fontSize: wp('4%'),
+    fontWeight: 'bold',
+  },
+  backContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: hp('3%'),
+  },
+  backText: {
+    color: '#FFF',
+    fontSize: wp('4%'),
+    marginLeft: wp('2%'),
+  },
 });
 
 export default ForgotPasswordScreen;
