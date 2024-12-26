@@ -2,7 +2,6 @@ import React, {useState} from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   Image,
   TextInput,
   TouchableOpacity,
@@ -10,9 +9,16 @@ import {
   ScrollView,
   Dimensions,
   FlatList,
+  ActivityIndicator,
+  Animated,
+  PermissionsAndroid,
+  Platform,
+  Alert,
+  StyleSheet,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import {launchImageLibrary, launchCamera} from 'react-native-image-picker';
+import {useUser} from '../hooks/useUser';
 
 const {width, height} = Dimensions.get('window');
 
@@ -55,26 +61,136 @@ const CreatePostScreen = ({navigation}) => {
 
   const [image, setImage] = useState(null);
   const [postText, setPostText] = useState('');
+  const [isPosting, setIsPosting] = useState(false);
+  const [postStatus, setPostStatus] = useState('');
+  const [statusMessage, setStatusMessage] = useState('');
+  const fadeAnim = new Animated.Value(0);
 
-  const handleImagePicker = () => {
-    launchImageLibrary({mediaType: 'photo', quality: 1}, response => {
+  const {uploadImage} = useUser();
+
+  const fadeIn = () => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 500,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const fadeOut = () => {
+    Animated.timing(fadeAnim, {
+      toValue: 0,
+      duration: 500,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const showStatus = (status, message) => {
+    setPostStatus(status);
+    setStatusMessage(message);
+    fadeIn();
+    setTimeout(() => {
+      fadeOut();
+      setTimeout(() => {
+        setPostStatus('');
+        setStatusMessage('');
+      }, 500);
+    }, 2000);
+  };
+
+  const handlePost = async () => {
+    if (!image || !postText.trim()) {
+      return;
+    }
+
+    setIsPosting(true);
+    try {
+      const formData = new FormData();
+      formData.append('image', {
+        uri: image,
+        type: 'image/jpeg',
+        name: 'photo.jpg',
+      });
+      formData.append('text', postText.trim());
+
+      await uploadImage(formData);
+      showStatus('success', 'Post created successfully!');
+      setImage(null);
+      setPostText('');
+    } catch (error) {
+      showStatus('error', error.message || 'Failed to create post');
+    } finally {
+      setIsPosting(false);
+    }
+  };
+
+  const requestCameraPermission = async () => {
+    if (Platform.OS === 'android') {
+      try {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.CAMERA,
+          {
+            title: 'Camera Permission',
+            message: 'App needs camera permission to take pictures.',
+            buttonNeutral: 'Ask Me Later',
+            buttonNegative: 'Cancel',
+            buttonPositive: 'OK',
+          },
+        );
+        return granted === PermissionsAndroid.RESULTS.GRANTED;
+      } catch (err) {
+        console.warn(err);
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const handleGallery = () => {
+    const options = {
+      mediaType: 'photo',
+      quality: 1,
+      maxWidth: 1280,
+      maxHeight: 1280,
+      includeBase64: false,
+    };
+
+    launchImageLibrary(options, response => {
       if (response.didCancel) {
         console.log('User cancelled image picker');
-      } else if (response.errorCode) {
-        console.log('ImagePicker Error: ', response.errorCode);
-      } else {
+      } else if (response.error) {
+        console.log('ImagePicker Error: ', response.error);
+      } else if (response.assets && response.assets[0]) {
         setImage(response.assets[0].uri);
       }
     });
   };
 
-  const handleCamera = () => {
-    launchCamera({mediaType: 'photo', quality: 1}, response => {
+  const handleCamera = async () => {
+    const hasCameraPermission = await requestCameraPermission();
+
+    if (!hasCameraPermission) {
+      Alert.alert(
+        'Permission Denied',
+        'Please grant camera permission to use the camera',
+      );
+      return;
+    }
+
+    const options = {
+      mediaType: 'photo',
+      quality: 1,
+      maxWidth: 1280,
+      maxHeight: 1280,
+      includeBase64: false,
+      saveToPhotos: true,
+    };
+
+    launchCamera(options, response => {
       if (response.didCancel) {
-        console.log('User cancelled camera picker');
-      } else if (response.errorCode) {
-        console.log('Camera Error: ', response.errorCode);
-      } else {
+        console.log('User cancelled camera');
+      } else if (response.error) {
+        console.log('Camera Error: ', response.error);
+      } else if (response.assets && response.assets[0]) {
         setImage(response.assets[0].uri);
       }
     });
@@ -82,7 +198,6 @@ const CreatePostScreen = ({navigation}) => {
 
   const renderItem = ({item}) => (
     <View style={styles.postCard}>
-      {/* Profile Image, Name, and Date */}
       <View style={styles.postHeader}>
         <View style={styles.profileSection}>
           <Image source={item.profileImage} style={styles.profileImage} />
@@ -91,27 +206,23 @@ const CreatePostScreen = ({navigation}) => {
             <Text style={styles.profiletitle}>{item.profiletitle}</Text>
           </View>
         </View>
-        {/* Date with adjusted style */}
         <Text style={styles.postDate} numberOfLines={1}>
           {item.postDate}
         </Text>
       </View>
 
-      {/* Post Image */}
       <Image source={item.postImage} style={styles.postImage} />
 
-      {/* Comment Section */}
       <View style={styles.commentSection}>
         <Icon
           name="comment"
           size={16}
           color="#333"
-          style={{marginBottom: 4, marginLeft: 5}}
+          style={styles.commentIcon}
         />
         <Text style={styles.commentText}>{item.commentCount} Comments</Text>
       </View>
 
-      {/* Description Section */}
       <View style={styles.profileSection}>
         <TouchableOpacity onPress={() => navigation.navigate('ProfileScreen')}>
           <Image source={item.profileImage} style={styles.profileImage} />
@@ -124,6 +235,27 @@ const CreatePostScreen = ({navigation}) => {
     </View>
   );
 
+  const getButtonStyle = () => {
+    if (isPosting) {
+      return styles.postButtonPosting;
+    }
+    if (postStatus === 'success') {
+      return styles.postButtonSuccess;
+    }
+    if (postStatus === 'error') {
+      return styles.postButtonError;
+    }
+    return !image || !postText.trim()
+      ? styles.postButtonDisabled
+      : styles.postButton;
+  };
+
+  const getStatusBackgroundColor = () => {
+    return {
+      backgroundColor: postStatus === 'success' ? '#4CAF50' : '#f44336',
+    };
+  };
+
   return (
     <ImageBackground
       source={require('../assets/images/SplashBg.png')}
@@ -131,18 +263,19 @@ const CreatePostScreen = ({navigation}) => {
       <ScrollView
         style={styles.overlayContainer}
         showsVerticalScrollIndicator={false}>
-        {/* Top Section Text */}
         <View style={styles.topText}>
           <Text style={styles.leftText}>Create a Post</Text>
         </View>
 
         <View style={styles.cardContainer}>
           <View style={styles.topButtons}>
-            <TouchableOpacity style={styles.button} onPress={handleImagePicker}>
-              <Text style={styles.buttonText}>Updated Photos</Text>
+            <TouchableOpacity style={styles.button} onPress={handleGallery}>
+              <Icon name="image" size={24} color="#000" />
+              <Text style={styles.buttonText}>Upload Photos</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.button} onPress={handleCamera}>
-              <Text style={styles.buttonText}>Add a Photo</Text>
+              <Icon name="camera" size={24} color="#000" />
+              <Text style={styles.buttonText}>Take Photo</Text>
             </TouchableOpacity>
           </View>
 
@@ -162,9 +295,27 @@ const CreatePostScreen = ({navigation}) => {
             </View>
           </View>
 
-          <TouchableOpacity style={styles.postButton}>
-            <Text style={styles.postButtonText}>Post</Text>
+          <TouchableOpacity
+            style={getButtonStyle()}
+            onPress={handlePost}
+            disabled={isPosting || !image || !postText.trim()}>
+            {isPosting ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.postButtonText}>
+                {postStatus ? statusMessage : 'Post'}
+              </Text>
+            )}
           </TouchableOpacity>
+
+          <Animated.View
+            style={[
+              styles.statusMessage,
+              getStatusBackgroundColor(),
+              {opacity: fadeAnim},
+            ]}>
+            <Text style={styles.statusText}>{statusMessage}</Text>
+          </Animated.View>
         </View>
 
         <FlatList
@@ -220,11 +371,17 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     alignItems: 'center',
     width: '45%',
+    backgroundColor: '#FFF',
+    padding: 10,
+    borderRadius: 10,
+    elevation: 2,
   },
   buttonText: {
     textAlign: 'center',
     fontFamily: 'Poppins-Medium',
     fontWeight: '400',
+    marginTop: 5,
+    color: '#000',
   },
   inputSection: {
     backgroundColor: '#fff',
@@ -252,6 +409,11 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 10,
+    marginRight: 10,
+  },
+  commentIcon: {
+    marginBottom: 4,
+    marginLeft: 5,
   },
   postButton: {
     backgroundColor: '#FFA500',
@@ -265,7 +427,6 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     fontSize: 18,
   },
-
   postCard: {
     backgroundColor: '#FFD700',
     borderRadius: 10,
@@ -277,7 +438,6 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
     elevation: 3,
   },
-
   postHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -308,7 +468,6 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     width: '49%',
   },
-
   profiletitle: {
     fontSize: 14,
     color: '#777',
@@ -342,6 +501,44 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingVertical: 10,
+  },
+  postButtonDisabled: {
+    backgroundColor: '#cccccc',
+    paddingVertical: 10,
+    borderRadius: 20,
+    alignItems: 'center',
+  },
+  postButtonPosting: {
+    backgroundColor: '#FFA500',
+    paddingVertical: 10,
+    borderRadius: 20,
+    alignItems: 'center',
+  },
+  postButtonSuccess: {
+    backgroundColor: '#4CAF50',
+    paddingVertical: 10,
+    borderRadius: 20,
+    alignItems: 'center',
+  },
+  postButtonError: {
+    backgroundColor: '#f44336',
+    paddingVertical: 10,
+    borderRadius: 20,
+    alignItems: 'center',
+  },
+  statusMessage: {
+    position: 'absolute',
+    top: -30,
+    left: 20,
+    right: 20,
+    padding: 10,
+    borderRadius: 5,
+    alignItems: 'center',
+  },
+  statusText: {
+    color: '#fff',
+    fontFamily: 'Poppins-Medium',
+    fontSize: 14,
   },
 });
 

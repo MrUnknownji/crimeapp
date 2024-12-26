@@ -5,6 +5,7 @@ import {
   registerUserService,
   showUserService,
   updateUserService,
+  uploadImageService,
 } from '../services/userService';
 
 export const useUser = () => {
@@ -86,6 +87,20 @@ export const useUser = () => {
     }
   }, []);
 
+  const uploadImage = useCallback(async imageData => {
+    setLoading(true);
+    setError(null);
+    try {
+      const uploadedImage = await uploadImageService(imageData);
+      return uploadedImage;
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to upload image');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   return {
     user,
     loading,
@@ -95,5 +110,6 @@ export const useUser = () => {
     update,
     logout,
     show,
+    uploadImage,
   };
 };

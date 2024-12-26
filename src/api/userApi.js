@@ -35,3 +35,8 @@ export const logoutUser = async userData => {
   });
   return response;
 };
+
+export const uploadImage = async imageData => {
+  const response = await apiClient.post('/api/upload-image', imageData);
+  return response;
+};

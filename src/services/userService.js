@@ -4,6 +4,7 @@ import {
   updateUser,
   showUser,
   logoutUser,
+  uploadImage,
 } from '../api/userApi';
 
 export const registerUserService = async userData => {
@@ -20,4 +21,7 @@ export const showUserService = async loginToken => {
 };
 export const logoutUserService = async userData => {
   return await logoutUser(userData);
+};
+export const uploadImageService = async imageData => {
+  return await uploadImage(imageData);
 };
