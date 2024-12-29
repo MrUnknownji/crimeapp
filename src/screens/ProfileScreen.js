@@ -28,6 +28,18 @@ const ProfileScreen = () => {
     phone: '',
   });
 
+  const handleLogout = useCallback(async () => {
+    try {
+      const loginToken = await AsyncStorage.getItem('loginToken');
+      await logout(loginToken);
+      AsyncStorage.multiRemove(['loginToken', 'userId', 'loggedIn']);
+      navigation.replace('LoginScreen');
+    } catch (error) {
+      console.error('Error logging out:', error);
+      Alert.alert('Error', 'Failed to logout');
+    }
+  }, [logout, navigation]);
+
   const fetchUserData = useCallback(async () => {
     const loginToken = await AsyncStorage.getItem('loginToken');
     try {
@@ -40,7 +52,7 @@ const ProfileScreen = () => {
       Alert.alert('Error', 'Failed to fetch user data');
       handleLogout();
     }
-  }, []);
+  }, [show, handleLogout]);
 
   useEffect(() => {
     fetchUserData();
@@ -48,18 +60,6 @@ const ProfileScreen = () => {
 
   const handlePasswordChange = value => {
     setUserPassword(value);
-  };
-
-  const handleLogout = async () => {
-    try {
-      const loginToken = await AsyncStorage.getItem('loginToken');
-      await logout(loginToken);
-      AsyncStorage.multiRemove(['loginToken', 'userId', 'loggedIn']);
-      navigation.replace('LoginScreen');
-    } catch (error) {
-      console.error('Error logging out:', error);
-      Alert.alert('Error', 'Failed to logout');
-    }
   };
 
   const handleEdit = () => {

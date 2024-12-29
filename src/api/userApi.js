@@ -37,6 +37,12 @@ export const logoutUser = async userData => {
 };
 
 export const uploadImage = async imageData => {
-  const response = await apiClient.post('/api/upload-image', imageData);
+  const loginToken = await AsyncStorage.getItem('loginToken');
+  const response = await apiClient.post('/api/upload-image', imageData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+      Authorization: `Bearer ${loginToken}`,
+    },
+  });
   return response;
 };

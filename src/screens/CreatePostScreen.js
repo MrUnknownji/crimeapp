@@ -19,6 +19,7 @@ import {
 import Icon from 'react-native-vector-icons/FontAwesome';
 import {launchImageLibrary, launchCamera} from 'react-native-image-picker';
 import {useUser} from '../hooks/useUser';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const {width, height} = Dimensions.get('window');
 
@@ -66,7 +67,7 @@ const CreatePostScreen = ({navigation}) => {
   const [statusMessage, setStatusMessage] = useState('');
   const fadeAnim = new Animated.Value(0);
 
-  const {uploadImage} = useUser();
+  const {uploadImage, show} = useUser();
 
   const fadeIn = () => {
     Animated.timing(fadeAnim, {
@@ -104,20 +105,28 @@ const CreatePostScreen = ({navigation}) => {
 
     setIsPosting(true);
     try {
-      const formData = new FormData();
-      formData.append('image', {
-        uri: image,
-        type: 'image/jpeg',
-        name: 'photo.jpg',
-      });
-      formData.append('text', postText.trim());
+      const loginToken = await AsyncStorage.getItem('loginToken');
+      const userResponse = await show(loginToken);
+      const userName = userResponse.data.data.name;
 
-      await uploadImage(formData);
+      const formData = new FormData();
+
+      formData.append('image', {
+        uri: Platform.OS === 'ios' ? image.replace('file://', '') : image,
+        type: 'image/jpeg',
+        name: 'image.jpg',
+      });
+      formData.append('description', postText.trim());
+      formData.append('user_name', userName);
+
+      const response = await uploadImage(formData);
+      console.log('Upload success:', response.data);
       showStatus('success', 'Post created successfully!');
       setImage(null);
       setPostText('');
     } catch (error) {
-      showStatus('error', error.message || 'Failed to create post');
+      console.log('Upload error details:', error.response || error);
+      showStatus('error', 'Failed to upload image');
     } finally {
       setIsPosting(false);
     }
@@ -346,7 +355,7 @@ const styles = StyleSheet.create({
   },
   leftText: {
     fontSize: 18,
-    color: '#000',
+    color: 'white',
     fontFamily: 'Poppins-Medium',
     fontWeight: '400',
   },
