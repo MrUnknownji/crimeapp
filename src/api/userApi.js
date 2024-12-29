@@ -46,3 +46,13 @@ export const uploadImage = async imageData => {
   });
   return response;
 };
+
+export const getPosts = async () => {
+  const loginToken = await AsyncStorage.getItem('loginToken');
+  const response = await apiClient.get('/api/images', {
+    headers: {
+      Authorization: `Bearer ${loginToken}`,
+    },
+  });
+  return response;
+};

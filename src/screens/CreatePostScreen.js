@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {
   View,
   Text,
@@ -24,42 +24,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const {width, height} = Dimensions.get('window');
 
 const CreatePostScreen = ({navigation}) => {
-  const postData = [
-    {
-      id: '1',
-      profileName: 'Ethan Rivers',
-      profiletitle: 'Lucas Brooks',
-      postDate: '2 May 2024',
-      commentCount: 89,
-      postImage: require('../assets/images/unnamed.png'),
-      profileImage: require('../assets/images/profile.jpeg'),
-      description:
-        'Lorem Ipsum is simply dummy text of the printing and typesetting industry.',
-    },
-    {
-      id: '2',
-      profileName: 'John Doe',
-      profiletitle: 'Jane Smith',
-      postDate: '10 April 2024',
-      commentCount: 56,
-      postImage: require('../assets/images/crime.jpg'),
-      profileImage: require('../assets/images/profile.jpeg'),
-      description:
-        'This is another example post to demonstrate multiple cards in a FlatList.',
-    },
-    {
-      id: '3',
-      profileName: 'Jane Smith',
-      profiletitle: 'Jane Smith',
-      postDate: '10 April 2024',
-      commentCount: 60,
-      postImage: require('../assets/images/police.jpg'),
-      profileImage: require('../assets/images/profile.jpeg'),
-      description:
-        'This is another example post to demonstrate multiple cards in a FlatList.',
-    },
-  ];
-
+  const [posts, setPosts] = useState([]);
   const [image, setImage] = useState(null);
   const [postText, setPostText] = useState('');
   const [isPosting, setIsPosting] = useState(false);
@@ -67,7 +32,40 @@ const CreatePostScreen = ({navigation}) => {
   const [statusMessage, setStatusMessage] = useState('');
   const fadeAnim = new Animated.Value(0);
 
-  const {uploadImage, show} = useUser();
+  const {uploadImage, show, getAllPosts} = useUser();
+
+  useEffect(() => {
+    const get_all_posts = async () => {
+      try {
+        const response = await getAllPosts();
+        const formattedPosts = response.data.map(post => ({
+          id: post.id.toString(),
+          profileName: post.user_name ? post.user_name : 'Lucas',
+          profiletitle: post.title ? post.title : 'Lucas Brooks',
+          postDate: new Date(post.created_at).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+          }),
+          commentCount: post.comment_count ? post.comment_count : 80,
+          postImage: post.image_url
+            ? {
+                uri: `https://paprola.in/public/api/${post.image_url}`,
+                default: require('../assets/images/unnamed.png'),
+              }
+            : require('../assets/images/unnamed.png'),
+          profileImage: require('../assets/images/profile.jpeg'),
+          description: post.description
+            ? post.description
+            : 'Description is not available for this post',
+        }));
+        setPosts(formattedPosts);
+      } catch (error) {
+        console.error('Error fetching posts:', error);
+      }
+    };
+    get_all_posts();
+  }, [getAllPosts]);
 
   const fadeIn = () => {
     Animated.timing(fadeAnim, {
@@ -220,7 +218,19 @@ const CreatePostScreen = ({navigation}) => {
         </Text>
       </View>
 
-      <Image source={item.postImage} style={styles.postImage} />
+      <Image
+        source={item.postImage}
+        defaultSource={require('../assets/images/unnamed.png')}
+        style={styles.postImage}
+        onError={() => {
+          const updatedPosts = posts.map(post =>
+            post.id === item.id
+              ? {...post, postImage: require('../assets/images/unnamed.png')}
+              : post,
+          );
+          setPosts(updatedPosts);
+        }}
+      />
 
       <View style={styles.commentSection}>
         <Icon
@@ -236,9 +246,9 @@ const CreatePostScreen = ({navigation}) => {
         <TouchableOpacity onPress={() => navigation.navigate('ProfileScreen')}>
           <Image source={item.profileImage} style={styles.profileImage} />
         </TouchableOpacity>
-        <View>
+        <View style={styles.descriptionContainer}>
           <Text style={styles.profileName}>{item.profileName}</Text>
-          <Text style={styles.profileSubtitle}>{item.description}</Text>
+          <Text style={styles.description}>{item.description}</Text>
         </View>
       </View>
     </View>
@@ -328,7 +338,7 @@ const CreatePostScreen = ({navigation}) => {
         </View>
 
         <FlatList
-          data={postData}
+          data={posts}
           keyExtractor={item => item.id}
           renderItem={renderItem}
           contentContainerStyle={styles.listContent}
@@ -475,7 +485,8 @@ const styles = StyleSheet.create({
     color: '#777',
     fontFamily: 'Poppins-Medium',
     fontWeight: '400',
-    width: '49%',
+    flexWrap: 'wrap',
+    flex: 1,
   },
   profiletitle: {
     fontSize: 14,
@@ -494,6 +505,8 @@ const styles = StyleSheet.create({
     height: 200,
     borderRadius: 10,
     marginBottom: 10,
+    backgroundColor: '#f0f0f0',
+    resizeMode: 'cover',
   },
   commentSection: {
     flexDirection: 'row',
@@ -548,6 +561,17 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontFamily: 'Poppins-Medium',
     fontSize: 14,
+  },
+  descriptionContainer: {
+    flex: 1,
+    flexDirection: 'column',
+  },
+  description: {
+    fontSize: 14,
+    color: '#777',
+    fontFamily: 'Poppins-Medium',
+    fontWeight: '400',
+    flexWrap: 'wrap',
   },
 });
 

@@ -5,6 +5,7 @@ import {
   showUser,
   logoutUser,
   uploadImage,
+  getPosts,
 } from '../api/userApi';
 
 export const registerUserService = async userData => {
@@ -24,4 +25,7 @@ export const logoutUserService = async userData => {
 };
 export const uploadImageService = async imageData => {
   return await uploadImage(imageData);
+};
+export const getPostsService = async () => {
+  return await getPosts();
 };

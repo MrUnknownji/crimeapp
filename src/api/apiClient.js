@@ -4,7 +4,7 @@ const baseURL = 'https://paprola.in/public';
 
 const apiClient = axios.create({
   baseURL,
-  timeout: 30000,
+  timeout: 20000,
   headers: {
     Accept: 'application/json',
   },

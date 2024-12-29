@@ -1,5 +1,6 @@
 import {useState, useCallback} from 'react';
 import {
+  getPostsService,
   loginUserService,
   logoutUserService,
   registerUserService,
@@ -101,6 +102,20 @@ export const useUser = () => {
     }
   }, []);
 
+  const getAllPosts = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const allPosts = await getPostsService();
+      return allPosts;
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to get posts');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   return {
     user,
     loading,
@@ -111,5 +126,6 @@ export const useUser = () => {
     logout,
     show,
     uploadImage,
+    getAllPosts,
   };
 };
